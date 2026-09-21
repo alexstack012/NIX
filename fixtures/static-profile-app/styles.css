@@ -1,0 +1,81 @@
+:root {
+  color: #172033;
+  background: #eef2f7;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.page-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem;
+}
+
+.profile-card {
+  width: min(100%, 34rem);
+  padding: 2.5rem;
+  border: 1px solid #d8e0ec;
+  border-radius: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 1.25rem 3.5rem rgb(23 32 51 / 12%);
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: #445b84;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 3.25rem);
+  line-height: 1;
+}
+
+.summary {
+  max-width: 30rem;
+  margin: 1rem 0 2rem;
+  color: #526078;
+  line-height: 1.6;
+}
+
+.contact-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.8rem 1.25rem;
+  margin: 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5eaf1;
+}
+
+.contact-list dt {
+  color: #65728a;
+  font-weight: 650;
+}
+
+.contact-list dd {
+  margin: 0;
+}
+
+.contact-list a {
+  color: #2456a6;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.contact-list a:hover {
+  color: #163a73;
+}
