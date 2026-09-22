@@ -162,6 +162,7 @@ Share these items; do not include secrets or unrelated source code:
 - whether `model health` and the one-line prompt worked;
 - Nix task ID, iteration/tool/error counts, and terminal error;
 - the corresponding JSONL log from `.nix\manual-data\logs`;
+- `context_usage` and any `model_response_recovery` events from that log;
 - `git status --short` and the relevant `git diff` from the fixture;
 - approximate response speed and GPU/RAM use if performance is the issue.
 

@@ -14,6 +14,8 @@ describe('loadConfig', () => {
     expect(config.model.endpoint).toBe('http://127.0.0.1:8080');
     expect(config.model.provider).toBe('llama.cpp');
     expect(config.agent.maxIterations).toBe(30);
+    expect(config.agent.contextCharacterLimit).toBe(120_000);
+    expect(config.agent.maxMalformedToolCallRecoveries).toBe(2);
     expect(config.workspace.root).toBe(cwd);
   });
 

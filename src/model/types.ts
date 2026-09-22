@@ -36,8 +36,16 @@ export interface ModelUsage {
 export interface ModelResponse {
   readonly content: string;
   readonly toolCalls: readonly ModelToolCall[];
+  readonly issues?: readonly ModelResponseIssue[];
   readonly finishReason?: string;
   readonly usage?: ModelUsage;
+}
+
+export interface ModelResponseIssue {
+  readonly code: 'MALFORMED_TOOL_CALL';
+  readonly message: string;
+  readonly callId?: string;
+  readonly toolName?: string;
 }
 
 export interface ModelHealth {

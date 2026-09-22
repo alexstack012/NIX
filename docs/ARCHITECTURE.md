@@ -62,6 +62,31 @@ User task
     baseline and zero runtime dependencies. The source template stays versioned, while generated
     copies live under ignored `.nix/` state. Creation refuses overwrites so prior agent evidence is
     never silently destroyed.
+27. Primary-workspace edits have a task-local verification tracker. Every successful file mutation
+    invalidates both verification and diff-review state. If `package.json` exposes an allowlisted
+    test/lint/build/typecheck/format-check script, a successful matching npm command is required;
+    every modified task also requires a full, unscoped `git_diff` after the latest mutation.
+28. The runner estimates the full serialized message-and-tool-definition size before every model
+    request, logs `context_usage`, and stops with `context_limit` rather than allowing unbounded
+    history or silently discarding evidence. Individual tool results remain bounded at no more than
+    half the total budget by default.
+29. A provider may return backend-neutral recoverable response issues. llama.cpp malformed tool-call
+    JSON becomes `MALFORMED_TOOL_CALL`; the entire affected response is rejected, no calls from it
+    execute, and the model receives schema-based correction feedback. Recovery is bounded (default
+    two attempts), locally logged, and never guesses or repairs arguments.
+
+## Task-context strategy
+
+The current low-risk policy preserves complete history until the configured total character limit,
+then stops before another inference request. Character measurement is conservative and backend
+independent; provider token counts are logged when available but are not usable before a request.
+
+After live-model traces establish actual pressure, the next step may add deterministic compaction:
+retain the system prompt, user task, tool definitions, modification/verification state, and recent
+turns; replace older successful read-only tool exchanges with bounded summaries containing tool,
+path/query, outcome, and truncation provenance. Failed calls, mutations, verification results, and
+diff reviews should remain verbatim. No summarization or sliding-window deletion is implemented yet
+because doing so before evidence could hide facts needed for safe edits.
 
 ## Future-compatible boundaries
 

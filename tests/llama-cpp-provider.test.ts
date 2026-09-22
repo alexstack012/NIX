@@ -82,7 +82,7 @@ describe('LlamaCppProvider', () => {
     await expect(provider.healthCheck()).resolves.toMatchObject({ available: false });
   });
 
-  it('rejects malformed tool-call arguments', async () => {
+  it('returns malformed tool-call arguments as a recoverable response issue', async () => {
     const endpoint = await listen((_request, response) => {
       response.writeHead(200, { 'content-type': 'application/json' }).end(
         JSON.stringify({
@@ -94,8 +94,14 @@ describe('LlamaCppProvider', () => {
     });
     const provider = new LlamaCppProvider({ endpoint, model: 'test-model' });
 
-    await expect(provider.generate({ messages: [] })).rejects.toMatchObject({
-      code: 'MODEL_RESPONSE_INVALID',
+    await expect(provider.generate({ messages: [] })).resolves.toMatchObject({
+      toolCalls: [],
+      issues: [
+        {
+          code: 'MALFORMED_TOOL_CALL',
+          toolName: 'read_file',
+        },
+      ],
     });
   });
 });

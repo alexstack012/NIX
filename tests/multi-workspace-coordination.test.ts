@@ -132,9 +132,7 @@ describe('multi-workspace coordination', () => {
     ]);
     const thirdRequestMessages: readonly ModelMessage[] = provider.requests[3]?.messages ?? [];
     expect(
-      thirdRequestMessages.some((message) =>
-        message.content.includes('Cannot complete coordinated task yet'),
-      ),
+      thirdRequestMessages.some((message) => message.content.includes('Cannot complete task yet')),
     ).toBe(true);
     expect(await readFile(join(targetPath, 'math.mjs'), 'utf8')).toContain('a + b');
   }, 30_000);

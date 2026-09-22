@@ -4,6 +4,7 @@ import type {
   ModelHealth,
   ModelRequest,
   ModelResponse,
+  ModelResponseIssue,
   ModelToolCall,
   ModelUsage,
 } from './types.js';
@@ -137,9 +138,13 @@ export class LlamaCppProvider implements ModelProvider {
       throw new NixError('llama.cpp returned no assistant message.', 'MODEL_RESPONSE_INVALID');
     }
 
-    const toolCalls = (choice.message.tool_calls ?? []).map((call, index) =>
-      this.#parseToolCall(call, index),
-    );
+    const toolCalls: ModelToolCall[] = [];
+    const issues: ModelResponseIssue[] = [];
+    for (const [index, call] of (choice.message.tool_calls ?? []).entries()) {
+      const parsed = this.#parseToolCall(call, index);
+      if ('issue' in parsed) issues.push(parsed.issue);
+      else toolCalls.push(parsed.call);
+    }
     const usage: ModelUsage | undefined = payload.usage
       ? {
           ...(payload.usage.prompt_tokens === undefined
@@ -153,7 +158,8 @@ export class LlamaCppProvider implements ModelProvider {
 
     return {
       content: choice.message.content ?? '',
-      toolCalls,
+      toolCalls: issues.length === 0 ? toolCalls : [],
+      ...(issues.length === 0 ? {} : { issues }),
       ...(choice.finish_reason === undefined ? {} : { finishReason: choice.finish_reason }),
       ...(usage === undefined ? {} : { usage }),
     };
@@ -169,34 +175,43 @@ export class LlamaCppProvider implements ModelProvider {
     }
   }
 
-  #parseToolCall(call: RawToolCall, index: number): ModelToolCall {
+  #parseToolCall(
+    call: RawToolCall,
+    index: number,
+  ): { readonly call: ModelToolCall } | { readonly issue: ModelResponseIssue } {
     const name = call.function?.name;
     const rawArguments = call.function?.arguments ?? '{}';
     if (name === undefined || name === '') {
-      throw new NixError(
-        'llama.cpp returned a tool call without a name.',
-        'MODEL_RESPONSE_INVALID',
-      );
+      return {
+        issue: {
+          code: 'MALFORMED_TOOL_CALL',
+          message: 'A tool call had no function name. No tool calls from this response were run.',
+          ...(call.id === undefined ? {} : { callId: call.id }),
+        },
+      };
     }
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(rawArguments) as unknown;
-    } catch (error) {
-      throw new NixError(
-        `Tool call ${name} contained invalid JSON arguments.`,
-        'MODEL_RESPONSE_INVALID',
-        {
-          cause: error,
+    } catch {
+      return {
+        issue: {
+          code: 'MALFORMED_TOOL_CALL',
+          message: `Tool call ${name} contained invalid JSON arguments. No tool calls from this response were run.`,
+          ...(call.id === undefined ? {} : { callId: call.id }),
+          toolName: name,
         },
-      );
+      };
     }
 
     return {
-      id: call.id ?? `call-${String(index + 1)}`,
-      name,
-      arguments: parsed,
-      rawArguments,
+      call: {
+        id: call.id ?? `call-${String(index + 1)}`,
+        name,
+        arguments: parsed,
+        rawArguments,
+      },
     };
   }
 }

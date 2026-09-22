@@ -16,7 +16,9 @@ const schema = (required: string[]) => ({
   additionalProperties: false,
 });
 const track = (path: string, context: ToolContext): void => {
-  context.modifiedFiles?.add(context.workspace.relativePath(path));
+  const relativePath = context.workspace.relativePath(path);
+  context.modifiedFiles?.add(relativePath);
+  context.verification?.modified(relativePath);
 };
 const contentField = (value: Record<string, unknown>, name: string): string => {
   const content = value[name];

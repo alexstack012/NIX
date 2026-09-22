@@ -3,6 +3,7 @@ import { access, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { CommandPermissionManager } from '../security/command-permission.js';
+import { npmVerificationScript } from '../agent/workspace-verification.js';
 import { NixError } from '../shared/errors.js';
 import type { Tool } from './types.js';
 import { integerField, objectInput, stringField } from './validation.js';
@@ -74,7 +75,7 @@ export const runCommandTool: Tool<RunCommandInput> = {
       timeoutMs: integerField(value, 'timeoutMs', 120_000, 600_000),
     };
   },
-  async execute(input, { workspace }) {
+  async execute(input, { workspace, verification }) {
     const classification = permissions.classify(input.program, input.args);
     if (classification.decision !== 'allow') {
       const code =
@@ -89,7 +90,18 @@ export const runCommandTool: Tool<RunCommandInput> = {
       throw new NixError('Command cwd is not a directory.', 'PATH_TYPE_INVALID');
     const resolvedCommand = await resolveProgram(input.program, input.args);
     const started = Date.now();
-    return new Promise((resolve, reject) => {
+    const result = await new Promise<{
+      readonly program: string;
+      readonly args: readonly string[];
+      readonly exitCode: number | null;
+      readonly signal: NodeJS.Signals | null;
+      readonly timedOut: boolean;
+      readonly stdout: string;
+      readonly stderr: string;
+      readonly durationMs: number;
+      readonly truncated: boolean;
+      readonly classification: ReturnType<CommandPermissionManager['classify']>;
+    }>((resolve, reject) => {
       const child = spawn(resolvedCommand.program, [...resolvedCommand.args], {
         cwd,
         shell: false,
@@ -127,5 +139,14 @@ export const runCommandTool: Tool<RunCommandInput> = {
         });
       });
     });
+    const verificationScript = npmVerificationScript(input.program, input.args);
+    if (result.exitCode === 0 && !result.timedOut && verificationScript !== undefined) {
+      await verification?.refreshAvailableCommands();
+      verification?.verificationSucceeded(
+        verificationScript,
+        `${input.program} ${input.args.join(' ')}`.trim(),
+      );
+    }
+    return result;
   },
 };

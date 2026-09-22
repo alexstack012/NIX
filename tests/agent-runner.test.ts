@@ -169,4 +169,98 @@ describe('AgentRunner', () => {
     expect(parsed).toMatchObject({ truncated: true });
     expect(logger.events.some((event) => event.type === 'tool_result_truncated')).toBe(true);
   });
+
+  it('lets the model correct malformed tool calls within a logged retry budget', async () => {
+    const issueResponse: ModelResponse = {
+      content: 'I attempted a bad call.',
+      toolCalls: [],
+      issues: [
+        {
+          code: 'MALFORMED_TOOL_CALL',
+          toolName: 'read_file',
+          message: 'Tool call read_file contained invalid JSON arguments.',
+        },
+      ],
+    };
+    const recoveringProvider = new FakeProvider([
+      issueResponse,
+      response('', [
+        {
+          id: 'corrected',
+          name: 'read_file',
+          arguments: { path: 'README.md' },
+          rawArguments: '{"path":"README.md"}',
+        },
+      ]),
+      response('Recovered.'),
+    ]);
+    const logger = new CapturingLogger();
+    const runner = new AgentRunner({
+      provider: recoveringProvider,
+      tools: createReadOnlyToolRegistry(),
+      workspace: await workspace(),
+      logger,
+    });
+
+    await expect(runner.run('Recover safely.')).resolves.toMatchObject({
+      status: 'completed',
+      errors: 1,
+      toolCalls: 1,
+    });
+    expect(
+      recoveringProvider.requests[1]?.messages.some((message) =>
+        message.content.includes('No tools from that response were executed'),
+      ),
+    ).toBe(true);
+    expect(logger.events.some((event) => event.type === 'model_response_recovery')).toBe(true);
+  });
+
+  it('fails after the malformed tool-call recovery budget is exhausted', async () => {
+    const malformed: ModelResponse = {
+      content: '',
+      toolCalls: [],
+      issues: [
+        {
+          code: 'MALFORMED_TOOL_CALL',
+          message: 'Invalid arguments.',
+        },
+      ],
+    };
+    const logger = new CapturingLogger();
+    const runner = new AgentRunner({
+      provider: new FakeProvider([malformed, malformed]),
+      tools: createReadOnlyToolRegistry(),
+      workspace: await workspace(),
+      logger,
+      maxMalformedToolCallRecoveries: 1,
+    });
+
+    await expect(runner.run('Keep failing.')).rejects.toMatchObject({
+      code: 'MODEL_RESPONSE_INVALID',
+    });
+    expect(logger.events.filter((event) => event.type === 'model_response_recovery')).toHaveLength(
+      2,
+    );
+    expect(logger.events.at(-1)?.type).toBe('task_failed');
+  });
+
+  it('stops before sending a request that exceeds the total task-context limit', async () => {
+    const provider = new FakeProvider([]);
+    const logger = new CapturingLogger();
+    const runner = new AgentRunner({
+      provider,
+      tools: new ToolRegistry(),
+      workspace: await workspace(),
+      logger,
+      maxTaskContextCharacters: 1_000,
+    });
+
+    await expect(runner.run('x'.repeat(2_000))).resolves.toMatchObject({
+      status: 'context_limit',
+      iterations: 0,
+      toolCalls: 0,
+    });
+    expect(provider.requests).toHaveLength(0);
+    expect(logger.events.some((event) => event.type === 'context_usage')).toBe(true);
+  });
 });

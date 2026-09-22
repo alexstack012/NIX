@@ -93,6 +93,12 @@ describe('complete coding loop', () => {
       toolCalls: 4,
       errors: 0,
       modifiedFiles: ['math.mjs'],
+      workspaceVerification: {
+        modifiedFiles: ['math.mjs'],
+        availableVerificationScripts: ['test'],
+        verified: true,
+        diffReviewed: true,
+      },
     });
     expect(await readFile(join(root, 'math.mjs'), 'utf8')).toContain('a + b');
     const toolMessages = provider.requests
@@ -106,6 +112,75 @@ describe('complete coding loop', () => {
     expect(
       toolMessages.some(
         (message) => message.name === 'git_diff' && message.content.includes('a + b'),
+      ),
+    ).toBe(true);
+  }, 30_000);
+
+  it('blocks premature primary-workspace completion until verification and diff review', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'nix-primary-verification-'));
+    await writeFile(
+      join(root, 'package.json'),
+      JSON.stringify({ type: 'module', scripts: { test: 'node --test' } }),
+    );
+    await writeFile(join(root, 'value.mjs'), 'export const value = 1;\n');
+    await writeFile(
+      join(root, 'value.test.mjs'),
+      "import assert from 'node:assert/strict'; import test from 'node:test'; import { value } from './value.mjs'; test('value', () => assert.equal(value, 2));\n",
+    );
+    await exec('git', ['init'], { cwd: root });
+    await exec('git', ['add', '.'], { cwd: root });
+    await exec(
+      'git',
+      ['-c', 'user.name=Nix Test', '-c', 'user.email=nix@local.invalid', 'commit', '-m', 'fixture'],
+      { cwd: root },
+    );
+    const responses: ModelResponse[] = [
+      {
+        content: '',
+        toolCalls: [
+          call('patch', 'apply_patch', {
+            path: 'value.mjs',
+            oldText: 'value = 1',
+            newText: 'value = 2',
+          }),
+        ],
+      },
+      { content: 'Done too early.', toolCalls: [] },
+      {
+        content: '',
+        toolCalls: [call('test', 'run_command', { program: 'npm', args: ['test'] })],
+      },
+      { content: '', toolCalls: [call('diff', 'git_diff', {})] },
+      { content: 'Tested and reviewed.', toolCalls: [] },
+    ];
+    const provider: ModelProvider & { readonly requests: ModelRequest[] } = {
+      id: 'premature-test',
+      requests: [],
+      healthCheck: () => Promise.resolve({ available: true, message: 'ok' }),
+      generate(request) {
+        this.requests.push(request);
+        const next = responses.shift();
+        if (next === undefined) throw new Error('Script exhausted');
+        return Promise.resolve(next);
+      },
+    };
+    const runner = new AgentRunner({
+      provider,
+      tools: createDefaultToolRegistry(),
+      workspace: await WorkspaceManager.create(root),
+      maxIterations: 8,
+    });
+
+    const result = await runner.run('Change the value.');
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      iterations: 5,
+      workspaceVerification: { verified: true, diffReviewed: true },
+    });
+    expect(
+      provider.requests[2]?.messages.some((message) =>
+        message.content.includes('primary workspace: successful project verification required'),
       ),
     ).toBe(true);
   }, 30_000);

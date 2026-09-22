@@ -2,13 +2,13 @@
 
 ## Current milestone
 
-Live-model validation preparation (complete)
+Empirical live-model reliability hardening (complete; awaiting live inference)
 
-- [x] Add a disposable, zero-dependency static-site fixture generator
-- [x] Add automated coverage for fixture creation, baseline tests, Git cleanliness, and overwrite refusal
-- [x] Document staged manual testing, copy-paste prompts, expected outcomes, and troubleshooting
-- [x] Refresh local llama.cpp setup guidance from current official documentation
-- [x] Run the full project verification suite and inspect the Git state
+- [x] Refresh current Devstral/Qwen llama.cpp candidates without coupling Nix to a model
+- [x] Mechanically require primary-workspace verification and full Git diff review after edits
+- [x] Bound and log total accumulated task context without adding speculative summarization
+- [x] Recover from malformed tool-call JSON with a small logged retry budget
+- [x] Extend focused regression coverage and run the full verification suite
 
 ## Last known state
 
@@ -16,9 +16,11 @@ Milestones 0–12 are complete. The requested implementation roadmap is represen
 
 ## Work about to begin
 
-Implementation is ready for live local-model validation. A generated test app now provides a
-reproducible read-only trial and controlled edit trial without risking a real repository. The next
-action requires the user to select/start a local model and follow `docs/MANUAL_TESTING.md`.
+The disposable live-model fixture and reliability gates are ready for the first real llama.cpp run.
+Primary edits cannot complete prematurely, accumulated context is bounded and observable, and
+malformed tool JSON has bounded correction attempts. No local model has been started in this
+environment, so the next action remains empirical fixture validation. Organization graph, UI, and
+model lifecycle work remain out of scope.
 
 ## Verification log
 
@@ -84,6 +86,22 @@ action requires the user to select/start a local model and follow `docs/MANUAL_T
 - 2026-09-21 validation-prep final verification: `npm test` passed (52 tests across 14 files);
   typecheck, build, lint, and formatting passed. Root Git status contains only expected project files;
   generated `.nix/` test state remains ignored.
+- 2026-09-21 reliability hardening: primary-workspace file mutations now invalidate task-local
+  verification and diff-review state. Completion requires a successful exposed allowlisted npm
+  verification script when available and a full `git_diff` after the latest edit.
+- 2026-09-21 reliability hardening: the complete-loop test now proves an early “done” response is
+  rejected and the model must test and review the diff before completion. Tracker tests also prove a
+  later edit makes both states stale again.
+- 2026-09-21 reliability hardening: every model request logs the estimated total serialized context;
+  a request over `NIX_CONTEXT_CHARACTER_LIMIT` is not sent and the task stops as `context_limit`.
+- 2026-09-21 reliability hardening: malformed llama.cpp tool JSON is returned as a provider-neutral
+  issue. No call in that response executes; Nix supplies correction feedback for at most two attempts
+  by default and logs each attempt before retaining `MODEL_RESPONSE_INVALID` as the terminal failure.
+- 2026-09-21 model guidance: replaced Devstral Small 2507 with current Qwen3-Coder-30B-A3B-Instruct,
+  Devstral Small 2 24B Instruct 2512, and optional Qwen3-Coder-Next candidates. Nix remains
+  model-independent behind `ModelProvider`.
+- 2026-09-21 reliability final verification: `npm test` passed (58 tests across 15 files); typecheck,
+  build, lint, and formatting all passed.
 
 ## Important commands
 

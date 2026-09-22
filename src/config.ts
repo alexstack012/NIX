@@ -14,6 +14,7 @@ export interface NixConfig {
   readonly agent: {
     readonly maxIterations: number;
     readonly contextCharacterLimit: number;
+    readonly maxMalformedToolCallRecoveries: number;
   };
   readonly workspace: {
     readonly root: string;
@@ -97,6 +98,11 @@ export const loadConfig = async (options: LoadConfigOptions = {}): Promise<NixCo
         env.NIX_CONTEXT_CHARACTER_LIMIT,
         file.agent?.contextCharacterLimit ?? 120_000,
         'NIX_CONTEXT_CHARACTER_LIMIT',
+      ),
+      maxMalformedToolCallRecoveries: positiveInteger(
+        env.NIX_MAX_TOOL_CALL_RECOVERIES,
+        file.agent?.maxMalformedToolCallRecoveries ?? 2,
+        'NIX_MAX_TOOL_CALL_RECOVERIES',
       ),
     },
     workspace: {

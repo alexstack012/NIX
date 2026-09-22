@@ -50,12 +50,14 @@ export const gitDiffTool: Tool<{ path: string }> = {
   validate(input) {
     return { path: stringField(objectInput(input), 'path', { optional: true, fallback: '' }) };
   },
-  async execute(input, { workspace }) {
+  async execute(input, { workspace, verification }) {
     const args = ['diff', '--no-ext-diff'];
     if (input.path !== '') {
       const path = await workspace.resolveExisting(input.path);
       args.push('--', workspace.relativePath(path));
     }
-    return runGit(workspace.root, args);
+    const result = await runGit(workspace.root, args);
+    if (input.path === '') verification?.diffReviewed();
+    return result;
   },
 };

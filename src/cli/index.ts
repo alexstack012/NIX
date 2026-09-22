@@ -57,6 +57,8 @@ Environment:
   NIX_MODEL_NAME                Model identifier sent to the local server
   NIX_MODEL_TIMEOUT_MS          Local HTTP request timeout
   NIX_MAX_ITERATIONS            Agent loop limit (default 30)
+  NIX_CONTEXT_CHARACTER_LIMIT   Total task-context character limit (default 120000)
+  NIX_MAX_TOOL_CALL_RECOVERIES  Malformed tool-call retry limit (default 2)
   NIX_WORKSPACE                 Explicit workspace root
   NIX_CONFIG_PATH               Optional JSON configuration path
   NIX_DATA_DIRECTORY            Registry and default log storage directory
@@ -418,7 +420,8 @@ export const runCli = async (args: readonly string[]): Promise<number> => {
         taskMemory,
         ...(coordinationTargets.length === 0 ? {} : { coordination }),
         maxIterations: config.agent.maxIterations,
-        maxToolResultCharacters: config.agent.contextCharacterLimit,
+        maxTaskContextCharacters: config.agent.contextCharacterLimit,
+        maxMalformedToolCallRecoveries: config.agent.maxMalformedToolCallRecoveries,
         logger: config.logging.enabled
           ? new JsonlTaskLogger(config.logging.directory)
           : new NullTaskLogger(),

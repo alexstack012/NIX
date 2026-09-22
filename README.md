@@ -56,3 +56,7 @@ npm run dev -- --workspace StackApply --modify-workspace PaymentAPI run "Update 
 ```
 
 `--modify-workspace` is explicit per-task scope and also requires a persisted modify grant. External changes use dedicated scoped tools. Once an external workspace is modified, Nix refuses to complete until that workspace has a successful approved verification command and a reviewed Git diff.
+
+The same completion protection applies to the primary workspace: after a file mutation, Nix requires
+a successful allowlisted npm verification script when the root project exposes one, plus a full Git
+diff review after the latest edit.
